@@ -3,7 +3,7 @@ pipeline {
 
     parameters{
         string(name: 'NAME', defaultValue: 'piece')
-        string(name: 'INSTANCE_COUNT', defaultValue: '3')
+        string(name: 'INSTANCE_COUNT', defaultValue: '2')
     }
 
     stages {
@@ -30,14 +30,22 @@ pipeline {
             steps {
                 dir('backend/piece') {
                     script {
-                        def containerExists = sh(script: "docker ps -a --format '{{.Names}}' | grep ${params.NAME}", returnStatus: true) == 0
+                        def instanceCount = params.INSTANCE_COUNT.toInteger()
+                        for (int i = 1; i <= instanceCount; i++) {
+                            def instanceName = "${params.NAME}-${i}"
+                            def containerExists = sh(script: "docker ps -a --format '{{.Names}}' | grep ${instanceName}", returnStatus: true) == 0
 
-                        if (containerExists) {
-                            sh "docker stop ${params.NAME}"
-                            sh "docker rm ${params.NAME}"
-                            sh "docker rmi hyunjinius/springboot:latest"
+                            if (containerExists) {
+                                sh "docker stop ${instanceName}"
+                                sh "docker rm ${instanceName}"
+                            }
                         }
 
+                        // Remove the existing image if it exists
+                        def imageExists = sh(script: "docker images -q hyunjinius/springboot:latest", returnStatus: true) == 0
+                        if (imageExists) {
+                            sh "docker rmi hyunjinius/springboot:latest"
+                        }
 
                         sh '''
                         echo 'Dockerimage build...'
